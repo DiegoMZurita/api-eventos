@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface IEventService {
     List<Event> findAll();
+    Event save(Event event);
 }

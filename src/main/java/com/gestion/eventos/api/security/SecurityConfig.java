@@ -1,4 +1,4 @@
-package com.gestion.eventos.api.config;
+package com.gestion.eventos.api.security;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;

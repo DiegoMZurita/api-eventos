@@ -40,8 +40,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth ->
                         auth
                                 .requestMatchers("/api/v1/auth/**").permitAll()
+                                .requestMatchers("/h2-console/**").permitAll()
                                 .anyRequest().authenticated()
-                        );
+                )
+                        .headers(AbstractHttpConfigurer::disable);
                 http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
                 return http.build();
     }

@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.util.Set;
 
 @Data
 public class EventRequestDto {
@@ -16,4 +17,8 @@ public class EventRequestDto {
 
     @NotBlank(message = "La ubicación no puede estar vacía.")
     private String location;
+
+    @NotNull(message = "La categoría es obligatoria.")
+    private Long categoryId;
+    private Set<Long> speakersIds;
 }

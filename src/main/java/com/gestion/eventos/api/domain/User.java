@@ -2,6 +2,8 @@ package com.gestion.eventos.api.domain;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -32,6 +34,8 @@ public class User {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "event_id")
     )
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Set<Event> attendedEvents = new HashSet<>();
 
     public void addAttendedEvent(Event event) {

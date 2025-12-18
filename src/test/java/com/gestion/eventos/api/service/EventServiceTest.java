@@ -112,4 +112,101 @@ public class EventServiceTest {
         verify(eventRepository, times(1)).findById(99L);
     }
 
+    @Test
+    @DisplayName("Debe guardar un Evento exitosamente con categoria y oradores")
+    void shouldSaveEventSuccessfullyWithCategoryAndSpeakers(){
+
+        Event eventWithoutId = new Event();
+        eventWithoutId.setName(eventRequestDto.getName());
+        eventWithoutId.setDate(eventRequestDto.getDate());
+        eventWithoutId.setLocation(eventRequestDto.getLocation());
+
+        when(eventMapper.toEntity(any(EventRequestDto.class))).thenReturn(eventWithoutId);
+
+        when(categoryService.findById(eventRequestDto.getCategoryId())).thenReturn(category);
+        when(speakerService.findById(10L)).thenReturn(speaker1);
+        when(speakerService.findById(11L)).thenReturn(speaker2);
+
+        when(eventRepository.save(any(Event.class))).thenAnswer(
+                invocation -> {
+                    Event savedEvent = invocation.getArgument(0);
+                    savedEvent.setId(1L);
+                    return savedEvent;
+                });
+
+        Event savedEvent = eventService.save(eventRequestDto);
+
+        assertNotNull(savedEvent);
+        assertEquals(1L, savedEvent.getId());
+        assertEquals(eventRequestDto.getName(), savedEvent.getName());
+        assertEquals(category.getName(), savedEvent.getCategory().getName());
+        assertEquals(2, savedEvent.getSpeakers().size());
+
+        assertTrue(savedEvent.getSpeakers().contains(speaker1));
+        assertTrue(savedEvent.getSpeakers().contains(speaker2));
+
+        verify(eventMapper, times(1)).toEntity(eventRequestDto);
+        verify(categoryService, times(1)).findById(eventRequestDto.getCategoryId());
+        verify(speakerService, times(1)).findById(10L);
+        verify(speakerService, times(1)).findById(11L);
+        verify(eventRepository, times(1)).save(any(Event.class));
+    }
+
+    @Test
+    @DisplayName("Debe guardar un Evento exitosamente sin oradores")
+    void shouldSaveEventSuccessfullyWithoutSpeakers(){
+        eventRequestDto.setSpeakersIds(null);
+
+        Event eventWithoutId = new Event();
+        eventWithoutId.setName(eventRequestDto.getName());
+        eventWithoutId.setLocation(eventRequestDto.getLocation());
+        eventWithoutId.setDate(eventRequestDto.getDate());
+
+        when(eventMapper.toEntity(any(EventRequestDto.class))).thenReturn(eventWithoutId);
+
+        when(categoryService.findById(eventRequestDto.getCategoryId())).thenReturn(category);
+
+        when(eventRepository.save(any(Event.class))).thenAnswer(
+                invocation -> {
+                    Event savedEvent = invocation.getArgument(0);
+                    savedEvent.setId(1L);
+                    return savedEvent;
+                });
+
+        Event savedEvent = eventService.save(eventRequestDto);
+
+        assertNotNull(savedEvent);
+        assertEquals(1L, savedEvent.getId());
+        assertEquals(eventRequestDto.getName(), savedEvent.getName());
+        assertEquals(category.getName(), savedEvent.getCategory().getName());
+
+        assertTrue(savedEvent.getSpeakers().isEmpty());
+
+        verify(eventMapper, times(1)).toEntity(eventRequestDto);
+        verify(categoryService, times(1)).findById(eventRequestDto.getCategoryId());
+        verify(speakerService, never()).findById(anyLong());
+        verify(eventRepository, times(1)).save(any(Event.class));
+    }
+
+    @Test
+    @DisplayName("Debe lanzar ResourceNotFoundException si la categoria no existe al guardar")
+    void shouldThrowResourceNotFoundExceptionWhenCategoryNotFoundOnSave(){
+        Event eventWithoutId = new Event();
+
+        when(eventMapper.toEntity(any(EventRequestDto.class))).thenReturn(eventWithoutId);
+
+        when(categoryService.findById(anyLong())).thenThrow(
+                new ResourceNotFoundException("Categoria no encontrada con id: "
+                    + eventRequestDto.getCategoryId()));
+
+        ResourceNotFoundException thrown = assertThrows( ResourceNotFoundException.class, () -> {
+            eventService.save(eventRequestDto);
+        });
+
+        assertEquals("Categoria no encontrada con id: " + eventRequestDto.getCategoryId(),
+                thrown.getMessage());
+
+        verify(eventRepository, never()).save(any(Event.class));
+    }
+
 }

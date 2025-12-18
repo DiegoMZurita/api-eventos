@@ -15,13 +15,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -207,6 +207,54 @@ public class EventServiceTest {
                 thrown.getMessage());
 
         verify(eventRepository, never()).save(any(Event.class));
+    }
+
+    @Test
+    @DisplayName("Debe retornar una pagina de eventos sin filtro de nombre")
+    void shouldReturnPageOfEventsWithoutNameFilter(){
+        List<Event> events = Collections.singletonList(event);
+        Page<Event> eventPage = new PageImpl<>(events, pageable, 1);
+
+        when(eventRepository.findAll(pageable)).thenReturn(eventPage);
+
+        when(eventMapper.toResponseDto(any(Event.class))).thenReturn(eventResponseDto);
+
+        Page<EventResponseDto> result = eventService.findAll(null, pageable);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        assertEquals(1, result.getContent().size());
+        assertEquals(eventResponseDto, result.getContent().get(0));
+
+        verify(eventRepository, times(1)).findAll(pageable);
+        verify(eventRepository, never()).findByNameContainingIgnoreCase(anyString(), any(Pageable.class));
+        verify(eventMapper, times(1)).toResponseDto(event);
+    }
+
+    @Test
+    @DisplayName("Debe retornar una pagina de eventos con filtro de nombre")
+    void shouldReturnPageOfEventsWithNameFilter(){
+
+        String filterName = "Spring";
+
+        List<Event> events = Collections.singletonList(event);
+        Page<Event> eventPage = new PageImpl<>(events, pageable, 1);
+
+        when(eventRepository.findByNameContainingIgnoreCase(filterName, pageable)).thenReturn(eventPage);
+
+        when(eventMapper.toResponseDto(any(Event.class))).thenReturn(eventResponseDto);
+
+        Page<EventResponseDto> result = eventService.findAll(filterName, pageable);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        assertEquals(1, result.getContent().size());
+        assertEquals(eventResponseDto, result.getContent().get(0));
+
+        verify(eventRepository, times(1)).findByNameContainingIgnoreCase(filterName, pageable);
+        verify(eventRepository, never()).findAll(any(Pageable.class));
+        verify(eventMapper, times(1)).toResponseDto(event);
+
     }
 
 }

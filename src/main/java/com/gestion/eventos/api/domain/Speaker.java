@@ -1,5 +1,6 @@
 package com.gestion.eventos.api.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -27,5 +28,6 @@ public class Speaker {
     @ManyToMany(mappedBy = "speakers")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
+    @JsonIgnore
     private Set<Event> events = new HashSet<>();
 }

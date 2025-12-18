@@ -26,6 +26,13 @@ public class EventController {
     private final IEventService eventService;
     private final EventMapper eventMapper;
 
+    @GetMapping("/optimized/all-details")
+    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
+    public ResponseEntity<List<Event>> getAllEventsWithAllDetails() {
+        List<Event> events = eventService.findAllEventsWithAllDetailsOptimized();
+        return ResponseEntity.ok(events);
+    }
+
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public ResponseEntity<Page<EventResponseDto>> getAllEvents(

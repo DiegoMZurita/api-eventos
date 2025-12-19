@@ -12,6 +12,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -29,6 +31,7 @@ import java.util.List;
 public class EventController {
 
     private final IEventService eventService;
+    private static final Logger logger = LoggerFactory.getLogger(EventController.class);
     private final EventMapper eventMapper;
 
     @GetMapping("/optimized/all-details")
@@ -38,7 +41,9 @@ public class EventController {
             @ApiResponse(responseCode = "200", description = "Listado de eventos obtenido exitosamente")
     })
     public ResponseEntity<List<Event>> getAllEventsWithAllDetails() {
+        logger.info("Recibida solicitud GET /optimized/all-details.");
         List<Event> events = eventService.findAllEventsWithAllDetailsOptimized();
+        logger.debug("Devolviendo {} eventos desde /optimized/all-details.", events.size());
         return ResponseEntity.ok(events);
     }
 
@@ -52,7 +57,11 @@ public class EventController {
             @RequestParam(required = false) String name,
             @PageableDefault(page = 0, size = 10, sort = "name")Pageable pageable
             ) {
+
+        logger.info("Recibida solicitud GET /events con nombre '{}' y paginación {}", name, pageable);
         Page<EventResponseDto> events = eventService.findAll(name, pageable);
+
+        logger.debug("Devolviendo {} eventos paginados.", events.getTotalPages());
         return ResponseEntity.ok(events);
     }
 
@@ -66,8 +75,12 @@ public class EventController {
             @ApiResponse(responseCode = "403", description = "Acceso denegado")
     })
     public ResponseEntity<EventResponseDto> createEvent(@Valid @RequestBody EventRequestDto requestDto) {
+        logger.info("Recibida solicitud para crear evento: {}", requestDto.getName());
+
         Event eventSaved = eventService.save(requestDto);
         EventResponseDto responseDto = eventMapper.toResponseDto(eventSaved);
+
+        logger.debug("Evento creado exitosamente: {}", eventSaved.getName());
 
         return new ResponseEntity<>(responseDto, HttpStatus.CREATED);
     }
@@ -82,9 +95,10 @@ public class EventController {
             }
     )
     public ResponseEntity<EventResponseDto> getEventById(@PathVariable Long id) {
-        Event event = eventService.findById(id);
+        logger.info("Recibida solicitud GET /events/{} para buscar evento.", id);
+        Event event = eventService.findById(id); // Si no lo encuentra, IEventService lanzará ResourceNotFoundException
         EventResponseDto responseDto = eventMapper.toResponseDto(event);
-
+        logger.debug("Evento con ID {} encontrado y mapeado.", id);
         return ResponseEntity.ok(responseDto);
     }
 
@@ -101,7 +115,9 @@ public class EventController {
     public ResponseEntity<EventResponseDto> updateEvent(@PathVariable Long id,
                                                         @Valid @RequestBody EventRequestDto requestDto
     ){
-        Event updateEvent = eventService.update(id, requestDto);
+        logger.info("Recibida solicitud PUT /events/{} para actualizar evento: {}", id, requestDto.getName());
+        Event updateEvent = eventService.update(id, requestDto); // Si falla, GlobalExceptionHandler lo captura
+        logger.debug("Evento con ID {} actualizado exitosamente.", id);
         return ResponseEntity.ok(eventMapper.toResponseDto(updateEvent));
     }
 
@@ -116,7 +132,9 @@ public class EventController {
     })
 
     public ResponseEntity<Void> deleteEvent(@PathVariable Long id) {
-        eventService.deleteById(id);
+        logger.info("Recibida solicitud DELETE /events/{} para eliminar evento.", id);
+        eventService.deleteById(id); // Si falla, GlobalExceptionHandler lo captura
+        logger.debug("Evento con ID {} eliminado exitosamente.", id);
         return ResponseEntity.noContent().build();
     }
 }

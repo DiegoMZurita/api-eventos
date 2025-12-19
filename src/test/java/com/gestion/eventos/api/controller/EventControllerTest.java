@@ -6,6 +6,7 @@ import com.gestion.eventos.api.domain.Event;
 import com.gestion.eventos.api.domain.Speaker;
 import com.gestion.eventos.api.dto.EventResponseDto;
 import com.gestion.eventos.api.dto.SpeakerResponseDto;
+import com.gestion.eventos.api.exception.ResourceNotFoundException;
 import com.gestion.eventos.api.mapper.EventMapper;
 import com.gestion.eventos.api.security.jwt.JwtAuthEntryPoint;
 import com.gestion.eventos.api.security.jwt.JwtAuthenticationFilter;
@@ -23,6 +24,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -30,6 +35,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 import java.time.LocalDate;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.mockito.Mockito.*;
@@ -154,5 +160,112 @@ class EventControllerTest {
         verify(eventMapper, times(1)).toResponseDto(eventEntity);
 
     }
+
+    @Test
+    @DisplayName("GET /api/v1/events/{id} - Debe retornar 404 Not Found cuando el evento no existe")
+    @WithMockUser(username = "testUsert", roles = "USER")
+    void shouldReturnNotFoundWhenEventDoesNotExist() throws Exception{
+        when(eventService.findById(anyLong())).thenThrow(
+                new ResourceNotFoundException("Evento no encontrado con id: 99")
+        );
+
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/events/{id}", 99L)
+                .accept(MediaType.APPLICATION_JSON))
+
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("Evento no encontrado con id: 99"));
+
+        verify(eventService, times(1)).findById(99L);
+        verify(eventMapper, never()).toResponseDto(any(Event.class));
+
+
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/events - Debe retornar todos los eventos paginados y filtrados")
+    @WithMockUser(username = "testUser", roles = "USER")
+    void shouldReturnAllEventsPagedAndFiltered() throws Exception {
+
+        //Preparación
+        SpeakerResponseDto speakerResponseA = new SpeakerResponseDto(20L, "Juan Pérez", "juan.perez@example.com", "Experto en Spring Boot.");
+        Set<SpeakerResponseDto> speakersA = new HashSet<>(Set.of(speakerResponseA));
+
+        EventResponseDto eventResponse2 = new EventResponseDto();
+        eventResponse2.setId(2L);
+        eventResponse2.setName("Webinar de Spring Security");
+        eventResponse2.setDate(LocalDate.of(2024, 12, 1));
+        eventResponse2.setLocation("Virtual");
+        eventResponse2.setCategoryName("Tecnología");
+        eventResponse2.setCategoryId(10L);
+        eventResponse2.setSpeakers(speakersA); // Asigna los speakers
+
+        EventResponseDto eventResponse3 = new EventResponseDto();
+        eventResponse3.setId(3L);
+        eventResponse3.setName("Conferencia Cloud Nativo");
+        eventResponse3.setDate(LocalDate.of(2025, 1, 20));
+        eventResponse3.setLocation("Auditorio Principal");
+        eventResponse3.setCategoryName("Tecnología");
+        eventResponse3.setCategoryId(10L);
+        eventResponse3.setSpeakers(speakersA); // Asigna los mismos speakers
+
+        List<EventResponseDto> eventResponseList = List.of(eventResponse2, eventResponse3);
+
+        Pageable pageableMock = PageRequest.of(0, 10);
+
+        Page<EventResponseDto> eventResponseDtoPage = new PageImpl<>(eventResponseList,
+                pageableMock, eventResponseList.size());
+
+        when(eventService.findAll(eq("Spring"), any(Pageable.class))).thenReturn(eventResponseDtoPage);
+
+        //Ejecución
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/events")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("name", "Spring")
+                        .contentType(MediaType.APPLICATION_JSON)
+                )
+                //Verificación
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.content[0]").exists())
+                .andExpect(jsonPath("$.content[1]").exists())
+                .andExpect(jsonPath("$.content[2]").doesNotExist())
+
+                // Verificar los datos del primer evento en la página
+                .andExpect(jsonPath("$.content[0].id").value(2))
+                .andExpect(jsonPath("$.content[0].name").value("Webinar de Spring Security"))
+                .andExpect(jsonPath("$.content[0].date").value("2024-12-01"))
+                .andExpect(jsonPath("$.content[0].location").value("Virtual"))
+                .andExpect(jsonPath("$.content[0].categoryName").value("Tecnología"))
+                .andExpect(jsonPath("$.content[0].speakers.length()").value(1))
+                .andExpect(jsonPath("$.content[0].speakers[?(@.name == 'Juan Pérez')].id").value(20))
+                .andExpect(jsonPath("$.content[0].speakers[?(@.name == 'Juan Pérez')].name").value("Juan Pérez"))
+                .andExpect(jsonPath("$.content[0].speakers[?(@.name == 'Juan Pérez')].email").value("juan.perez@example.com"))
+                .andExpect(jsonPath("$.content[0].speakers[?(@.name == 'Juan Pérez')].bio").value("Experto en Spring Boot."))
+
+                // Verificar los datos del segundo evento en la página
+                .andExpect(jsonPath("$.content[1].id").value(3))
+                .andExpect(jsonPath("$.content[1].name").value("Conferencia Cloud Nativo"))
+                .andExpect(jsonPath("$.content[1].date").value("2025-01-20"))
+                .andExpect(jsonPath("$.content[1].location").value("Auditorio Principal"))
+                .andExpect(jsonPath("$.content[1].categoryName").value("Tecnología"))
+                .andExpect(jsonPath("$.content[1].speakers.length()").value(1))
+                .andExpect(jsonPath("$.content[1].speakers[?(@.name == 'Juan Pérez')].id").value(20))
+                .andExpect(jsonPath("$.content[1].speakers[?(@.name == 'Juan Pérez')].name").value("Juan Pérez"))
+                .andExpect(jsonPath("$.content[1].speakers[?(@.name == 'Juan Pérez')].email").value("juan.perez@example.com"))
+                .andExpect(jsonPath("$.content[1].speakers[?(@.name == 'Juan Pérez')].bio").value("Experto en Spring Boot."))
+
+                .andExpect(jsonPath("$.pageable.pageNumber").value(0))
+                .andExpect(jsonPath("$.pageable.pageSize").value(10))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.last").value(true));
+
+
+        verify(eventService, times(1)).findAll(eq("Spring"), any(Pageable.class));
+        verify(eventService, never()).findById(anyLong());
+    }
+
 
 }

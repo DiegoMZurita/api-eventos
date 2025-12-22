@@ -67,6 +67,7 @@ repository/   → Acceso a datos con Spring Data JPA
 security/     → Configuración de seguridad y JWT
 service/      → Lógica de negocio
 ```
+📂 src/main/resources
 ```text
 application.properties        → Configuración base
 application-dev.properties    → Configuración entorno desarrollo
